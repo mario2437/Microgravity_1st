@@ -1,0 +1,26 @@
+rm(list=ls())
+graphics.off()
+
+library(ggpubr)
+library(ggplot2)
+
+data1 <- read.table("zerogravity_RNAseq_readcount.txt",sep="\t", header=T)
+cts<-data1[,3:ncol(data1)]
+use<-cts[cts$Gene_Symbol %in% c('TBC1D3G', 'TBC1D3F', 'FAM72D', 'TBC1D3L', 'TBC1D3K', 'TBC1D3I', 'TBC1D3D'),]
+tuse<-as.data.frame(t(use))
+colnames(tuse)<-tuse[1,]
+tuse$Gene <- rownames(tuse)
+TBC1D3F_count <- tuse[,c('TBC1D3F', 'Gene')]
+
+ata1 <- read.table("TBC1D3I.txt",sep="\t", header=T)
+
+p<-ggplot(data=ata1, aes(x=Organoid, y=TBC1D3I, fill = Condition))+ 
+geom_bar(stat="identity")+
+scale_fill_manual(values=c("darkgrey", "#56B4E9"))+
+theme_minimal()
+
+p
+
+dev.copy(tiff,"zerogravity_TBC1D3I_Readcount_231116.tiff",width=7, height=3, units="in",res=200) 
+dev.off() 
+
