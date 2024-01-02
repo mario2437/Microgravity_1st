@@ -1,0 +1,137 @@
+# Set working directory
+setwd('E://zerogravity_total/zerogravity')
+install.packages()
+install.packages("S4Vectors")
+
+# Adjust the entire gene list with normal pair using dplyr package
+library("tidyverse")
+library("dplyr")
+
+## Calculate each p-value from DEseq
+library("DESeq2")
+library(ggplot2)
+library(ggpubr)
+library(EnhancedVolcano)
+library(rlang)
+
+rm(list=ls())
+graphics.off()
+
+data1 <- read.table("zerogravity_RNAseq_readcount.txt",sep="\t", header=T)
+cts<-data1[,4:ncol(data1)]
+cts = as.matrix(cts)
+row.names(cts)<-data1$Gene_Symbol
+head(cts)
+
+coldata <- read.table("zerogravity_annotation_2.txt", row.names=1, header=T)
+coldata <- coldata[,c("condition","type")]
+coldata <- coldata[,c("type")]
+
+coldata$condition <- factor(coldata$condition)
+coldata$type <- factor(coldata$type)
+head(cts,2)
+head(coldata)
+all(rownames(coldata) %in% colnames(cts))
+all(rownames(coldata) == colnames(cts))
+
+
+cts <- cts[, rownames(coldata)]
+cts <- cts[, coldata]
+
+all(rownames(coldata) == colnames(cts))
+
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ type)
+
+# Remove low reads (at least 10 reads in total)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+# Specify the reference level
+dds$condition <- relevel(dds$type, ref = "normal")
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+res <- results(dds)
+
+## Specify the coefficient or contrast we want to build a results table for
+## reference goes to the last
+
+res <- results(dds, name="type_zeroG1_vs_normal")
+write.table(res, "zegoravity_deseq_res_onlytypecount_231109.txt", sep = "\t")
+
+resultsNames(dds)
+BiocManager::install('apeglm')
+library(apeglm)
+
+# Shrinkage of effect size (LFC estimates) is useful for visualization and ranking of genes
+resLFC <- lfcShrink(dds, coef="type_zeroG1_vs_normal", type="apeglm")
+resLFC
+row.names(resLFC)<-rownames(dds)
+head(resLFC,2)
+write.table(resLFC, "zegoravity_deseq_res_shrink_onlytypecount_231109.txt", sep="\t", row.names=T)
+
+# The following resLFC result can be used to the visualization analysis
+
+###DrawMAplot using lfcshrinked res###
+library(ggplot2)
+library(ggpubr)
+library(EnhancedVolcano)
+
+data3 <- read.table("zegoravity_deseq_res_shrink_onlytypecount_231109.txt",sep="\t", header=T)
+
+
+###
+ggmaplot(data3, main = expression("G0 vs control"),
+         fdr = 0.1, fc = 0.1, size = 1.2,
+         palette = c("#B31B21", "#1465AC", "darkgray"),
+         genenames = as.vector(data3$Gene_Symbol),
+         select.top.method = c("padj", "fc"),
+         legend = "top", top = 20,
+         font.label = c("bold", 12),
+         font.legend = "bold",
+         font.main = "bold",
+         ggtheme = ggplot2::theme_minimal())
+
+dev.copy(tiff,"zegoravity_MAPLOT_TOP10_231106.tiff",width=10, height=5, units="in",res=200) 
+dev.off() 
+
+
+ggmaplot(data3, main = expression("G0 vs control"),
+         fdr = 0.9, fc = 0.8, size = 1.2,
+         palette = c("#B31B21", "#1465AC", "darkgray"),
+         genenames = as.vector(data3$Gene_Symbol),
+         select.top.method = c("padj", "fc"),
+         legend = "top", top = 30,
+         font.label = c("bold", 12),
+         font.legend = "bold",
+         font.main = "bold",
+         ggtheme = ggplot2::theme_minimal())
+
+#######Perform PCA analysis from DESEQ2 step using PCAtools package from R#######
+vst <- assay(vst(dds))
+p <- pca(vst, metadata = colData(dds), removeVar = 0.1)
+screeplot(p, axisLabSize = 18, titleLabSize = 22)
+dev.copy(tiff,"zerogravity_PCA_screeplot_231113.tiff",width=7, height=7, units="in",res=200) 
+dev.off() 
+
+biplot(p, showLoadings = TRUE, labSize = 3, pointSize = 3, sizeLoadingsNames = 3)
+dev.copy(tiff,"zerogravity_PCA_biplot_231113.tiff",width=10, height=10, units="in",res=200) 
+dev.off() 
+
+pairsplot(p)
+
+plotloadings(p, labSize = 3)
+dev.copy(tiff,"zerogravity_PCA_loadingcomponents_pic_231113.tiff",width=8, height=8, units="in",res=200) 
+dev.off() 
+q<-p$loadings
+write.table(q, "zerogravity_PCA_loadingcomponents_231113.txt", sep="\t")
+
+
+
+
+
+
+
+
