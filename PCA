@@ -1,0 +1,71 @@
+rm(list=ls())
+graphics.off()
+
+library("NbClust")
+library("FactoMineR")
+library("factoextra")
+
+data7<-read.table("zerogravity_RNAseq_readcount.txt", header=T, sep="\t", na.strings = "NA")
+cts<-data7[,4:ncol(data7)]
+cts = as.matrix(cts)
+row.names(cts)<-data7$Gene_Symbol
+head(cts)
+ctst<-t(cts)
+
+data8<-data7[,3:ncol(data7)]
+data8_tt<-t(data8)
+
+## Determine the number of optimal cluster
+## fviz_nbclust() function: Elbow, Silhouhette and Gap statistic methods
+
+fviz_nbclust(data8_stt, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+#####
+data8 = as.matrix(data8)
+row.names(data8)<-data7$Gene_Symbol
+data8_t <- t(data8)
+
+res.pca <- PCA(ctst, graph = FALSE)
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 50))
+dev.copy(tiff,"NbClust_PCA_Dimentions_Zerogravity_231113.tiff",width=7, height=7, units="in",res=200) 
+dev.off() 
+
+
+# FactoMinR package function
+#X : a data frame. Rows are individuals and columns are numeric variables
+#scale.unit : a logical value. If TRUE, the data are scaled to unit variance before the analysis. This standardization to the same scale avoids some variables to become dominant just because of their large measurement units.
+#ncp : number of dimensions kept in the final results.
+
+res.pca <- PCA(ctst, scale.unit = TRUE, ncp = 2, graph = FALSE)
+res.pca
+
+
+res.hcpc <- HCPC(res.pca, graph = FALSE)
+res.hcpc$call$row.w
+res.hcpc$call$t
+res.hcpc$call
+
+fviz_dend(res.hcpc, 
+          cex = 0.5,                     # Label size
+          palette = "jco",               # Color palette see ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Add rectangle around groups
+          rect_border = "jco",           # Rectangle color
+          labels_track_height = 0.5      # Augment the room for labels
+)
+
+
+fviz_cluster(res.hcpc,
+             repel = TRUE,            # Avoid label overlapping
+             show.clust.cent = TRUE, # Show cluster centers
+             palette = "jco",         # Color palette see ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Pancreatic Organoid"
+)
+
+dev.copy(tiff,"PCA_h_clustering_zerogravity_231113.tiff",width=6, height=6, units="in",res=200) 
+dev.off() 
+
+
