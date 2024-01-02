@@ -1,0 +1,67 @@
+###########################################################################################
+###########################################################################################
+##########################CMS_ANALYSIS##########################
+
+setwd("C://Users/BECAUSEWECAN/Desktop/SMA")
+
+source("https://bioconductor.org/biocLite.R")
+biocLite(c("Biobase", "limma"))
+install.packages("devtools")
+devtools::install_github("Lothelab/CMScaller")
+#CMScaller package download from github has different path (updated in 230901)
+devtools::install_github("peterawe/CMScaller")
+
+BiocManager::install("CMScaller", force = TRUE)
+BiocManager::install("subPCA")
+install.packages("CMScaller")
+
+
+
+library(Biobase)
+library(CMScaller)
+library("subPCA")
+
+par(mfrow=c(1,2))
+rm(list=ls())
+
+### CMS prediction of CRC samples ###
+
+data1<-read.table("zerogravity_RNAseq_readcount.txt", header=T, sep="\t", na.strings = "NA", fill=T)
+
+data2<-data1[,4:ncol(data1)]
+data2 = as.matrix(data2)
+row.names(data2)<-data1$Gene_ID
+
+res <- CMScaller(emat=data2, RNAseq=TRUE, doPlot=TRUE, rowNames = "entrez", FDR = 1)
+dev.copy(tiff,"zerogravity_CMS_type_231106.tiff",width=5, height=10, units="in",res=200) 
+dev.off() 
+write.table(res, "zerogravity_CMS_type_231106.txt", sep="\t")
+
+
+cam <- CMSgsa(emat=data2, class=res$prediction, RNAseq=TRUE, doPlot=TRUE)
+dev.copy(tiff,"zerogravity_CAM_type_231106.tiff",width=4.5, height=10, units="in",res=200) 
+dev.off() 
+write.table(cam, "zerogravity_CAM_type_231106.txt", sep="\t")
+
+
+deg <- subDEG(emat=data2, class=res$prediction, doVoom=TRUE, RNAseq=TRUE, doPlot=TRUE)
+dev.copy(tiff,"SNU6685totaldeg_20210226.tiff",width=10, height=10, units="in",res=200) 
+dev.off() 
+write.table(deg, "Rectal_Organoid_DEG_type_230901.txt", sep="\t")
+
+####################Preparing custom templates####################
+emat <- data2
+cms <- res$prediction
+train <- sample(seq_along(cms), size=length(cms)/(2))
+deg <- subDEG(emat[,train], class=cms[train], doVoom=TRUE)
+templates <- ntpMakeTemplates(deg, resDEG=TRUE, topN=50)
+templates$symbol <- fromTo(templates$probe)
+tail(templates,n=3)
+write.table(templates, "zerogravity_templates_type_231106.txt", sep="\t")
+
+
+####################Gene Set Analysis####################
+par.old <- par()
+par(mfrow=c(1,1), mar=par.old$mar+c(0,4,0,0))
+subCamera(data2, cms, geneList=geneSets.CRC, doVoom=TRUE)
+subVolcano(deg, geneID="rownames", lfc = log2(2), padj = 0.05, ave = 0, topN = 5, cexText = 1)
